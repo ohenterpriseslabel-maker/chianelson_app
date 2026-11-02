@@ -15,6 +15,8 @@ workflows:
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.chianelson.chianelson
+    integrations:
+      app_store_connect: CHIANELSON App Store Connect # must match the name you gave the integration in Codemagic
     triggering:
       events:
         - push
