@@ -13,7 +13,7 @@ Future<void> main() async {
     ));
     return;
   }
-  await Supabase.initialize(url: AppConfig.supabaseUrl, anonKey: AppConfig.supabaseKey);
+  await Supabase.initialize(url: AppConfig.supabaseUrl, publishableKey: AppConfig.supabaseKey);
   runApp(const ChianelsonApp());
 }
 
