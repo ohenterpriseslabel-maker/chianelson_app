@@ -19,7 +19,13 @@ class Shell extends StatelessWidget {
       builder: (context, index, _) => Scaffold(
         body: IndexedStack(
           index: index,
-          children: const [HomeScreen(), ShopScreen(), WishlistScreen(), OrdersScreen(), AccountScreen()],
+          children: [
+            HomeScreen(),
+            ShopScreen(),
+            WishlistScreen(),
+            OrdersScreen(),
+            AccountScreen(),
+          ],
         ),
         bottomNavigationBar: NavigationBar(
           selectedIndex: index,

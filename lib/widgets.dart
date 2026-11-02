@@ -49,7 +49,10 @@ class ProductImage extends StatelessWidget {
       imageUrl: url,
       fit: fit,
       placeholder: (_, __) => const ColoredBox(color: Color(0xFFF1ECDF)),
-      errorWidget: (_, __, ___) => const ColoredBox(color: Color(0xFFF1ECDF), child: Center(child: Icon(Icons.image_outlined, color: Colors.black26, size: 36))),
+      errorWidget: (_, __, ___) => const ColoredBox(
+        color: Color(0xFFF1ECDF),
+        child: Center(child: Icon(Icons.image_outlined, color: Colors.black26, size: 36)),
+      ),
     );
   }
 }
@@ -88,7 +91,11 @@ class FavouriteButton extends StatelessWidget {
         onTap: () => toggleFavourite(context, product),
         child: Padding(
           padding: const EdgeInsets.all(7),
-          child: Icon(saved ? Icons.favorite : Icons.favorite_border, size: 20, color: saved ? const Color(0xFFB3261E) : AppConfig.navy),
+          child: Icon(
+            saved ? Icons.favorite : Icons.favorite_border,
+            size: 20,
+            color: saved ? const Color(0xFFB3261E) : AppConfig.navy,
+          ),
         ),
       ),
     );
@@ -115,7 +122,8 @@ class ProductCard extends StatelessWidget {
                 children: [
                   ProductImage(url: product.coverUrl),
                   Positioned(top: 6, right: 6, child: FavouriteButton(product)),
-                  if (product.stock == StockStatus.outOfStock) Positioned(left: 6, bottom: 6, child: StockBadge(product.stock)),
+                  if (product.stock == StockStatus.outOfStock)
+                    Positioned(left: 6, bottom: 6, child: StockBadge(product.stock)),
                 ],
               ),
             ),
@@ -125,9 +133,19 @@ class ProductCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(product.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600, height: 1.25)),
+                  Text(
+                    product.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w600, height: 1.25),
+                  ),
                   const SizedBox(height: 4),
-                  Text(product.category, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                  Text(
+                    product.category,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12, color: Colors.black54),
+                  ),
                 ],
               ),
             ),
@@ -149,7 +167,12 @@ class ProductGrid extends StatelessWidget {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       padding: EdgeInsets.zero,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 0.72),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 0.72,
+      ),
       itemCount: products.length,
       itemBuilder: (_, i) => ProductCard(products[i]),
     );
@@ -174,7 +197,10 @@ class NeedsSignIn extends StatelessWidget {
             const SizedBox(height: 16),
             Text(message, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, height: 1.4)),
             const SizedBox(height: 20),
-            FilledButton(onPressed: () => AppScope.of(context).selectedTab.value = 4, child: const Text('Sign in with your phone')),
+            FilledButton(
+              onPressed: () => AppScope.of(context).selectedTab.value = 4,
+              child: const Text('Sign in with your phone'),
+            ),
           ],
         ),
       ),
@@ -187,6 +213,11 @@ class SectionTitle extends StatelessWidget {
   final String text;
 
   @override
-  Widget build(BuildContext context) =>
-      Padding(padding: const EdgeInsets.fromLTRB(16, 24, 16, 12), child: Text(text, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)));
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
+        child: Text(
+          text,
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+        ),
+      );
 }
