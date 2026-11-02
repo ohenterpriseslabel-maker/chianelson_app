@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../admin_repository.dart';
 import '../config.dart';
-import '../models.dart';
 import 'admin_banners_screen.dart';
 import 'admin_orders_screen.dart';
 import 'admin_rewards_screen.dart';
@@ -81,35 +80,35 @@ class _AdminScreenState extends State<AdminScreen> {
               },
             ),
             const SizedBox(height: 16),
-            _Tile(
+            const _Tile(
               icon: Icons.local_shipping_outlined,
               title: 'Orders and tracking',
               subtitle: 'Create orders and move them through each stage',
-              page: const AdminOrdersScreen(),
+              page: AdminOrdersScreen(),
             ),
-            _Tile(
+            const _Tile(
               icon: Icons.view_carousel_outlined,
               title: 'Home banners',
               subtitle: 'Add, hide or remove the banners on the home page',
-              page: const AdminBannersScreen(),
+              page: AdminBannersScreen(),
             ),
-            _Tile(
+            const _Tile(
               icon: Icons.rate_review_outlined,
               title: 'Review approval',
               subtitle: 'Approve or remove customer reviews',
-              page: const AdminReviewsScreen(),
+              page: AdminReviewsScreen(),
             ),
-            _Tile(
+            const _Tile(
               icon: Icons.card_giftcard_outlined,
               title: 'Referral rewards',
               subtitle: 'Record rewards for customers who referred friends',
-              page: const AdminRewardsScreen(),
+              page: AdminRewardsScreen(),
             ),
-            _Tile(
+            const _Tile(
               icon: Icons.inventory_2_outlined,
               title: 'Stock status',
               subtitle: 'Mark each product in stock, low stock or out of stock',
-              page: const AdminStockScreen(),
+              page: AdminStockScreen(),
             ),
             const _Tile(
               icon: Icons.notifications_outlined,
