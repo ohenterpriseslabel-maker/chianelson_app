@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../app_state.dart';
 import '../config.dart';
+import '../brand_logo.dart';
 import '../models.dart';
 import '../widgets.dart';
 
@@ -24,7 +25,7 @@ class HomeScreen extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(16, 12, 8, 0),
               child: Row(
                 children: [
-                  const Expanded(child: Text('CHIANELSON', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, letterSpacing: 4, color: AppConfig.navy))),
+                  const Expanded(child: Align(alignment: Alignment.centerLeft, child: BrandLogo(height: 44))),
                   IconButton(tooltip: 'Search products', icon: const Icon(Icons.search), onPressed: () => openShop(context)),
                 ],
               ),
