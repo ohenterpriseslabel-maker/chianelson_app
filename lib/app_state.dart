@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'config.dart';
 import 'models.dart';
 import 'repository.dart';
 
@@ -56,7 +57,7 @@ class AppState extends ChangeNotifier {
     try {
       products = await repo.products();
     } catch (e) {
-      error = 'We could not load the catalogue.\n\n${_detail(e)}';
+      error = 'We could not load the catalogue.\n\n${_detail(e)}\n\n${_keyCheck()}';
     }
     // Banners and favourites are optional: a problem there must never hide the products.
     try {
@@ -67,6 +68,13 @@ class AppState extends ChangeNotifier {
     await _loadWishlist();
     loading = false;
     notifyListeners();
+  }
+
+  /// Shows how the app sees the key: its length and first characters only, never the whole key.
+  String _keyCheck() {
+    final key = AppConfig.supabaseKey;
+    final start = key.length >= 6 ? key.substring(0, 6) : key;
+    return 'Key check: ${key.length} characters, starts with "$start".';
   }
 
   /// The first part of the real error, so it can be read and fixed.
