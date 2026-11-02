@@ -55,8 +55,8 @@ class AppState extends ChangeNotifier {
     notifyListeners();
     try {
       products = await repo.products();
-    } catch (_) {
-      error = 'We could not load the catalogue. Check your connection and try again.';
+    } catch (e) {
+      error = 'We could not load the catalogue.\n\n${_detail(e)}';
     }
     // Banners and favourites are optional: a problem there must never hide the products.
     try {
@@ -67,6 +67,12 @@ class AppState extends ChangeNotifier {
     await _loadWishlist();
     loading = false;
     notifyListeners();
+  }
+
+  /// The first part of the real error, so it can be read and fixed.
+  String _detail(Object e) {
+    final text = e.toString();
+    return text.length > 400 ? text.substring(0, 400) : text;
   }
 
   Future<void> _loadWishlist() async {

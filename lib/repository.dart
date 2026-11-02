@@ -12,7 +12,8 @@ class _Media {
 class Repository {
   SupabaseClient get _db => Supabase.instance.client;
   String? get userId => _db.auth.currentUser?.id;
-  String? get userPhone => _db.auth.currentUser?.phone;
+  /// The customer's phone number (digits only), set on the server when the account was created.
+  String? get userPhone => _db.auth.currentUser?.appMetadata['phone'] as String?;
 
   // ---- Catalogue -------------------------------------------------------------------------------
 
@@ -27,7 +28,10 @@ class Repository {
 
   /// Photos and videos for every product, as links that work for a few hours.
   Future<Map<String, _Media>> _media() async {
-    final rows = await _db.from('product_images').select('product_id,storage_path,kind').order('created_at', ascending: false);
+    final rows = await _db
+        .from('product_images')
+        .select('product_id,storage_path,kind')
+        .order('created_at', ascending: false);
     if (rows.isEmpty) return {};
     final urls = await _sign(rows.map((r) => r['storage_path'] as String).toList());
     final byProduct = <String, _Media>{};
@@ -84,12 +88,27 @@ class Repository {
 
   /// Only reviews the owner has approved are visible.
   Future<List<Review>> reviews(String productId) async {
-    final rows = await _db.from('reviews').select().eq('product_id', productId).eq('approved', true).order('created_at', ascending: false);
+    final rows = await _db
+        .from('reviews')
+        .select()
+        .eq('product_id', productId)
+        .eq('approved', true)
+        .order('created_at', ascending: false);
     return rows.map(Review.fromRow).toList();
   }
 
-  Future<void> addReview({required String productId, required String author, required int rating, required String comment}) async {
-    await _db.from('reviews').insert({'product_id': productId, 'author_name': author, 'rating': rating, 'comment': comment});
+  Future<void> addReview({
+    required String productId,
+    required String author,
+    required int rating,
+    required String comment,
+  }) async {
+    await _db.from('reviews').insert({
+      'product_id': productId,
+      'author_name': author,
+      'rating': rating,
+      'comment': comment,
+    });
   }
 
   // ---- Orders ----------------------------------------------------------------------------------
@@ -113,11 +132,24 @@ class Repository {
     return ok == true;
   }
 
-  // ---- Sign in ---------------------------------------------------------------------------------
+  // ---- Sign in and sign up ---------------------------------------------------------------------
 
-  Future<void> sendCode(String phone) => _db.auth.signInWithOtp(phone: phone);
+  /// The login address for a phone number. Digits only, e.g. 2348023334499@customers.chianelson.com.
+  /// No email is sent: the address is only a username.
+  String _emailFor(String phone) {
+    final digits = phone.replaceAll(RegExp(r'\D'), '');
+    return '$digits@customers.chianelson.com';
+  }
 
-  Future<void> verifyCode(String phone, String code) => _db.auth.verifyOTP(phone: phone, token: code, type: OtpType.sms);
+  /// Creates an account with a phone number and password. Nothing is sent to the customer.
+  Future<void> signUp(String phone, String password) async {
+    await _db.auth.signUp(email: _emailFor(phone), password: password);
+  }
+
+  /// Signs in with a phone number and password.
+  Future<void> signIn(String phone, String password) async {
+    await _db.auth.signInWithPassword(email: _emailFor(phone), password: password);
+  }
 
   Future<void> signOut() => _db.auth.signOut();
 }
