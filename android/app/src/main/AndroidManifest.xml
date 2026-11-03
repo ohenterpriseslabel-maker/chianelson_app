@@ -1,6 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Lets the app reach the CHIANELSON database. Release builds need this line; without it every request fails. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+
     <application
-        android:label="chianelson"
+        android:label="CHIANELSON"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
@@ -35,7 +38,7 @@
          https://developer.android.com/training/package-visibility and
          https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.
 
-         In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
+         In the Flutter Gradle plugin, the queries block is generated automatically. -->
     <queries>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
