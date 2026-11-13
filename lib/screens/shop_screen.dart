@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../app_state.dart';
-import '../models.dart';
+import '../theme.dart';
 import '../widgets.dart';
 
-/// Search and filter the whole collection.
 class ShopScreen extends StatefulWidget {
   const ShopScreen({super.key});
 
@@ -25,66 +24,117 @@ class _ShopScreenState extends State<ShopScreen> {
   @override
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
+
     return SafeArea(
       child: ValueListenableBuilder<String?>(
         valueListenable: state.shopCategory,
         builder: (context, category, _) {
           final needle = _search.text.trim().toLowerCase();
           final results = state.products.where((p) {
-            final inCategory = category == null || p.category == category || p.rooms.contains(category);
-            final matches = needle.isEmpty || p.name.toLowerCase().contains(needle) || p.category.toLowerCase().contains(needle);
-            final available = !_inStockOnly || p.stock != StockStatus.outOfStock;
-            return inCategory && matches && available;
+            final inRoom = category == null || p.rooms.contains(category) || p.category == category;
+            final matches = needle.isEmpty ||
+                p.name.toLowerCase().contains(needle) ||
+                p.category.toLowerCase().contains(needle);
+            return inRoom && matches && (!_inStockOnly || p.inStock);
           }).toList();
 
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              TextField(
-                controller: _search,
-                onChanged: (_) => setState(() {}),
-                textInputAction: TextInputAction.search,
-                decoration: InputDecoration(
-                  hintText: 'Search products',
-                  prefixIcon: const Icon(Icons.search),
-                  suffixIcon: _search.text.isEmpty ? null : IconButton(icon: const Icon(Icons.close), onPressed: () => setState(_search.clear)),
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+          return CustomScrollView(
+            slivers: [
+              const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(20, 12, 20, 0),
+                  child: Text('Shop',
+                      style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: Brand.navy)),
                 ),
               ),
-              const SizedBox(height: 12),
-              SizedBox(
-                height: 40,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  children: [
-                    for (final name in ['All', ...state.categories])
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: ChoiceChip(
-                          label: Text(name),
-                          selected: name == 'All' ? category == null : category == name,
-                          onSelected: (_) => state.shopCategory.value = name == 'All' ? null : name,
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                  child: TextField(
+                    controller: _search,
+                    onChanged: (_) => setState(() {}),
+                    textInputAction: TextInputAction.search,
+                    decoration: InputDecoration(
+                      hintText: 'Search gadgets',
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: _search.text.isEmpty
+                          ? null
+                          : IconButton(
+                              icon: const Icon(Icons.close),
+                              onPressed: () => setState(_search.clear),
+                            ),
+                    ),
+                  ),
+                ),
+              ),
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  height: 60,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    children: [
+                      for (final name in ['All', ...state.categories])
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ChoiceChip(
+                            label: Text(name),
+                            selected: name == 'All' ? category == null : category == name,
+                            onSelected: (_) {
+                              state.shopCategory.value = name == 'All' ? null : name;
+                            },
+                          ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Show only products in stock'),
-                value: _inStockOnly,
-                onChanged: (v) => setState(() => _inStockOnly = v),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+                  child: Row(
+                    children: [
+                      Text(
+                        '${results.length} ${results.length == 1 ? 'product' : 'products'}',
+                        style: const TextStyle(color: Brand.muted, fontWeight: FontWeight.w600),
+                      ),
+                      const Spacer(),
+                      FilterChip(
+                        label: const Text('In stock only'),
+                        selected: _inStockOnly,
+                        onSelected: (v) => setState(() => _inStockOnly = v),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              Text('${results.length} ${results.length == 1 ? 'product' : 'products'}', style: const TextStyle(color: Colors.black54, fontSize: 12)),
-              const SizedBox(height: 12),
               if (state.loading && state.products.isEmpty)
-                const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))
+                const SliverFillRemaining(child: Center(child: CircularProgressIndicator()))
               else if (results.isEmpty)
-                const Padding(padding: EdgeInsets.all(40), child: Center(child: Text('No matching products. Try another search or room.')))
+                const SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: EmptyState(
+                    icon: Icons.search_off,
+                    title: 'No products found',
+                    message: 'Try another word, or choose a different room.',
+                  ),
+                )
               else
-                ProductGrid(results),
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+                  sliver: SliverGrid(
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                      childAspectRatio: 0.62,
+                    ),
+                    delegate: SliverChildBuilderDelegate(
+                      (_, i) => ProductCard(results[i]),
+                      childCount: results.length,
+                    ),
+                  ),
+                ),
             ],
           );
         },

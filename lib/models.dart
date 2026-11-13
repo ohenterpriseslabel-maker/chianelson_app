@@ -1,7 +1,17 @@
 import 'config.dart';
 
 const _months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/// "12 Nov 2026"
 String formatDate(DateTime d) => '${d.day} ${_months[d.month - 1]} ${d.year}';
+
+/// "₦25,000"
+String ngn(double value) {
+  final digits = value.round().toString();
+  final grouped = digits.replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+$)'), (m) => '${m[1]},');
+  return '₦$grouped';
+}
+
 DateTime _date(dynamic raw) => DateTime.tryParse('${raw ?? ''}')?.toLocal() ?? DateTime.now();
 
 class ProductFeature {
@@ -38,7 +48,7 @@ class Product {
     required this.stock,
     required this.images,
     required this.createdAt,
-    this.video,
+    this.price,
   });
 
   final String id;
@@ -50,21 +60,20 @@ class Product {
   final List<ProductFeature> features;
   final bool featured;
   final StockStatus stock;
-
-  /// Uploaded photos (links that expire after a few hours, so they are fetched fresh on every load).
   final List<String> images;
-  final String? video;
   final DateTime createdAt;
 
-  /// Products that have no uploaded photo yet use the picture the website ships for them.
+  /// Price in naira. null means "price on request".
+  final double? price;
+
+  /// The website's photo, used when a product has no photo uploaded yet.
   String get fallbackImageUrl => '${AppConfig.siteUrl}/img/products/$id.jpg';
   String get coverUrl => images.isNotEmpty ? images.first : fallbackImageUrl;
   List<String> get gallery => images.isNotEmpty ? images : [fallbackImageUrl];
-
-  /// The product's page on the website. Sharing it in WhatsApp shows the product photo as a preview.
   String get pageUrl => '${AppConfig.siteUrl}/products/$id';
+  bool get inStock => stock != StockStatus.outOfStock;
 
-  factory Product.fromRow(Map<String, dynamic> row, {List<String> images = const [], String? video}) {
+  factory Product.fromRow(Map<String, dynamic> row, {List<String> images = const []}) {
     final features = (row['features'] as List? ?? const [])
         .whereType<Map>()
         .map((m) => ProductFeature(label: '${m['label'] ?? ''}'.trim(), value: '${m['value'] ?? ''}'.trim()))
@@ -82,7 +91,7 @@ class Product {
       stock: StockStatus.parse(row['stock_status'] as String?),
       images: images,
       createdAt: _date(row['created_at']),
-      video: video,
+      price: (row['price_ngn'] as num?)?.toDouble(),
     );
   }
 }
@@ -121,46 +130,27 @@ String orderStepLabel(String status) => switch (status) {
       _ => status,
     };
 
-class Order {
-  const Order({required this.id, required this.reference, required this.summary, required this.status, required this.createdAt, required this.updatedAt});
-  final String id;
+/// An order found by reference and phone number.
+class TrackedOrder {
+  const TrackedOrder({
+    required this.reference,
+    required this.summary,
+    required this.status,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
   final String reference;
   final String summary;
   final String status;
   final DateTime createdAt;
   final DateTime updatedAt;
 
-  factory Order.fromRow(Map<String, dynamic> r) => Order(
-        id: r['id'] as String,
-        reference: r['reference'] as String? ?? '',
-        summary: r['product_summary'] as String? ?? '',
-        status: r['status'] as String? ?? 'ordered',
-        createdAt: _date(r['created_at']),
-        updatedAt: _date(r['updated_at']),
-      );
-}
-
-class ReferralReward {
-  const ReferralReward({required this.reward, required this.status, required this.createdAt});
-  final String reward;
-  final String status;
-  final DateTime createdAt;
-}
-
-class ReferralSummary {
-  const ReferralSummary({required this.code, required this.friends, required this.terms, required this.rewards});
-  final String code;
-  final int friends;
-  final String terms;
-  final List<ReferralReward> rewards;
-
-  factory ReferralSummary.fromJson(Map<String, dynamic> json) => ReferralSummary(
-        code: json['code'] as String? ?? '',
-        friends: (json['friends'] as num?)?.toInt() ?? 0,
-        terms: json['terms'] as String? ?? '',
-        rewards: (json['rewards'] as List? ?? const [])
-            .whereType<Map>()
-            .map((m) => ReferralReward(reward: '${m['reward']}', status: '${m['status']}', createdAt: _date(m['created_at'])))
-            .toList(),
+  factory TrackedOrder.fromJson(Map<String, dynamic> j) => TrackedOrder(
+        reference: '${j['reference']}',
+        summary: '${j['summary']}',
+        status: '${j['status']}',
+        createdAt: _date(j['created_at']),
+        updatedAt: _date(j['updated_at']),
       );
 }

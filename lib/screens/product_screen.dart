@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:video_player/video_player.dart';
 
 import '../app_state.dart';
-import '../config.dart';
 import '../models.dart';
 import '../repository.dart';
+import '../theme.dart';
 import '../whatsapp.dart';
 import '../widgets.dart';
 
-/// One product: photos, video, colours, specifications, reviews and the WhatsApp enquiry button.
 class ProductScreen extends StatefulWidget {
   const ProductScreen({super.key, required this.productId});
+
   final String productId;
 
   @override
@@ -19,44 +18,111 @@ class ProductScreen extends StatefulWidget {
 
 class _ProductScreenState extends State<ProductScreen> {
   final _repo = Repository();
+  final _page = PageController();
+  int _photo = 0;
+  String? _colour;
+  int _quantity = 1;
   late Future<List<Review>> _reviews = _repo.reviews(widget.productId);
 
-  Future<void> _writeReview(Product product) async {
-    final state = AppScope.of(context);
-    if (!state.signedIn) {
-      goToAccount(context);
+  @override
+  void dispose() {
+    _page.dispose();
+    super.dispose();
+  }
+
+  void _addToCart(Product p) {
+    if (p.colours.isNotEmpty && _colour == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Choose a colour first.')));
       return;
     }
+    final state = AppScope.of(context);
+    final navigator = Navigator.of(context);
+    state.cart.add(p.id, colour: _colour, quantity: _quantity);
+
     final messenger = ScaffoldMessenger.of(context);
-    final result = await showDialog<_ReviewDraft>(context: context, builder: (_) => const _ReviewDialog());
-    if (result == null) return;
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(SnackBar(
+      behavior: SnackBarBehavior.floating,
+      content: Text('${p.name} added to your cart'),
+      action: SnackBarAction(
+        label: 'View cart',
+        onPressed: () {
+          navigator.popUntil((r) => r.isFirst);
+          state.selectedTab.value = 2;
+        },
+      ),
+    ));
+  }
+
+  Future<void> _writeReview(Product p) async {
+    final draft = await showDialog<_ReviewDraft>(context: context, builder: (_) => const _ReviewDialog());
+    if (draft == null) return;
+    final messenger = ScaffoldMessenger.of(context);
     try {
-      await _repo.addReview(productId: product.id, author: result.name, rating: result.rating, comment: result.comment);
-      messenger.showSnackBar(const SnackBar(content: Text('Thank you! Your review will appear once CHIANELSON approves it.')));
+      await _repo.addReview(
+        productId: p.id,
+        author: draft.name,
+        rating: draft.rating,
+        comment: draft.comment,
+      );
+      messenger.showSnackBar(const SnackBar(
+        content: Text('Thank you! Your review will appear once CHIANELSON approves it.'),
+      ));
     } catch (_) {
       messenger.showSnackBar(const SnackBar(content: Text('Your review could not be sent. Please try again.')));
     }
-    if (mounted) setState(() => _reviews = _repo.reviews(product.id));
   }
 
   @override
   Widget build(BuildContext context) {
-    final product = AppScope.of(context).productById(widget.productId);
-    if (product == null) {
-      return Scaffold(appBar: AppBar(), body: const Center(child: Text('This product is no longer available.')));
+    final state = AppScope.of(context);
+    final p = state.productById(widget.productId);
+    if (p == null) {
+      return Scaffold(
+        appBar: AppBar(),
+        body: const EmptyState(
+          icon: Icons.search_off,
+          title: 'Not available',
+          message: 'This product is no longer in the catalogue.',
+        ),
+      );
     }
-    final outOfStock = product.stock == StockStatus.outOfStock;
+
+    final total = p.price == null ? null : p.price! * _quantity;
 
     return Scaffold(
-      appBar: AppBar(actions: [Padding(padding: const EdgeInsets.only(right: 8), child: FavouriteButton(product))]),
+      appBar: AppBar(title: Text(p.category)),
       bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-          child: FilledButton.icon(
-            style: FilledButton.styleFrom(backgroundColor: const Color(0xFF1FA855), foregroundColor: Colors.white),
-            onPressed: () => enquireOnWhatsApp(context, product),
-            icon: const Icon(Icons.chat),
-            label: Text(outOfStock ? 'Ask when it is back in stock' : 'Enquire / Negotiate on WhatsApp'),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(top: BorderSide(color: Brand.line)),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Total', style: TextStyle(color: Brand.muted, fontSize: 12)),
+                    Text(
+                      total == null ? 'On request' : ngn(total),
+                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: Brand.navy),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(
+                width: 190,
+                child: FilledButton.icon(
+                  onPressed: p.inStock ? () => _addToCart(p) : null,
+                  icon: const Icon(Icons.shopping_bag_outlined),
+                  label: Text(p.inStock ? 'Add to cart' : 'Out of stock'),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -64,48 +130,124 @@ class _ProductScreenState extends State<ProductScreen> {
         padding: const EdgeInsets.only(bottom: 24),
         children: [
           SizedBox(
-            height: 320,
-            child: PageView(children: [for (final url in product.gallery) ProductImage(url: url, fit: BoxFit.contain)]),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            height: 340,
+            child: Stack(
               children: [
-                Text(product.category.toUpperCase(), style: const TextStyle(color: AppConfig.gold, fontWeight: FontWeight.w700, fontSize: 12, letterSpacing: 1.5)),
-                const SizedBox(height: 6),
-                Text(product.name, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
-                const SizedBox(height: 10),
-                StockBadge(product.stock),
-                if (product.description.isNotEmpty) ...[const SizedBox(height: 14), Text(product.description, style: const TextStyle(height: 1.5))],
-                if (product.colours.isNotEmpty) ...[
-                  const SizedBox(height: 20),
-                  const Text('Available colours', style: TextStyle(fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 8),
-                  Wrap(spacing: 8, runSpacing: 8, children: [for (final c in product.colours) Chip(label: Text(c), backgroundColor: Colors.white)]),
-                ],
+                Container(
+                  color: Colors.white,
+                  child: PageView.builder(
+                    controller: _page,
+                    itemCount: p.gallery.length,
+                    onPageChanged: (i) => setState(() => _photo = i),
+                    itemBuilder: (_, i) => Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: i == 0
+                          ? Hero(tag: heroTagFor(p), child: ProductImage(url: p.gallery[i], fit: BoxFit.contain))
+                          : ProductImage(url: p.gallery[i], fit: BoxFit.contain),
+                    ),
+                  ),
+                ),
+                if (p.gallery.length > 1)
+                  Positioned(
+                    bottom: 12,
+                    left: 0,
+                    right: 0,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        for (var i = 0; i < p.gallery.length; i++)
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            margin: const EdgeInsets.symmetric(horizontal: 3),
+                            width: i == _photo ? 18 : 7,
+                            height: 7,
+                            decoration: BoxDecoration(
+                              color: i == _photo ? Brand.navy : Brand.line,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
               ],
             ),
           ),
-          if (product.video != null) ...[const SectionTitle('Video'), Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: _ProductVideo(url: product.video!))],
-          if (product.features.isNotEmpty) ...[
-            const SectionTitle('Features & specifications'),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(p.name,
+                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, height: 1.2, color: Brand.ink)),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    PriceText(p, size: 22),
+                    const Spacer(),
+                    StockBadge(p.stock),
+                  ],
+                ),
+                if (p.description.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Text(p.description, style: const TextStyle(height: 1.5, color: Brand.ink)),
+                ],
+                if (p.colours.isNotEmpty) ...[
+                  const SizedBox(height: 22),
+                  const _Label('Colour'),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      for (final c in p.colours)
+                        ChoiceChip(
+                          label: Text(c),
+                          selected: _colour == c,
+                          onSelected: (_) => setState(() => _colour = c),
+                        ),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 22),
+                Row(
+                  children: [
+                    const _Label('Quantity'),
+                    const Spacer(),
+                    QuantityStepper(value: _quantity, onChanged: (q) => setState(() => _quantity = q)),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: () => enquireOnWhatsApp(context, p, colour: _colour),
+                  icon: const Icon(Icons.chat_bubble_outline),
+                  label: const Text('Ask about this on WhatsApp'),
+                ),
+              ],
+            ),
+          ),
+          if (p.features.isNotEmpty) ...[
+            const _SectionTitle('Features & specifications'),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Card(
-                margin: EdgeInsets.zero,
                 child: Column(
                   children: [
-                    for (var i = 0; i < product.features.length; i++) ...[
-                      if (i > 0) const Divider(height: 1),
+                    for (var i = 0; i < p.features.length; i++) ...[
+                      if (i > 0) const Divider(height: 1, color: Brand.line),
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(flex: 5, child: Text(product.features[i].label, style: const TextStyle(fontWeight: FontWeight.w600))),
-                            const SizedBox(width: 12),
-                            Expanded(flex: 6, child: Text(product.features[i].value, style: const TextStyle(color: Colors.black54))),
+                            Expanded(
+                              flex: 5,
+                              child: Text(p.features[i].label,
+                                  style: const TextStyle(fontWeight: FontWeight.w700, color: Brand.navy)),
+                            ),
+                            Expanded(
+                              flex: 6,
+                              child: Text(p.features[i].value, style: const TextStyle(color: Brand.ink)),
+                            ),
                           ],
                         ),
                       ),
@@ -115,40 +257,55 @@ class _ProductScreenState extends State<ProductScreen> {
               ),
             ),
           ],
-          const SectionTitle('Reviews'),
+          const _SectionTitle('Customer reviews'),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 20),
             child: FutureBuilder<List<Review>>(
               future: _reviews,
               builder: (context, snap) {
-                if (snap.connectionState != ConnectionState.done) return const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator()));
+                if (snap.connectionState != ConnectionState.done) {
+                  return const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator()));
+                }
                 final reviews = snap.data ?? const <Review>[];
                 return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    if (reviews.isEmpty) const Text('No reviews yet. Be the first to share your experience.', style: TextStyle(color: Colors.black54)),
+                    if (reviews.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 12),
+                        child: Text('No reviews yet. Be the first to share your experience.',
+                            style: TextStyle(color: Brand.muted)),
+                      ),
                     for (final r in reviews)
                       Card(
                         margin: const EdgeInsets.only(bottom: 10),
                         child: Padding(
-                          padding: const EdgeInsets.all(14),
+                          padding: const EdgeInsets.all(16),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(children: [
-                                for (var s = 1; s <= 5; s++) Icon(s <= r.rating ? Icons.star : Icons.star_border, size: 18, color: AppConfig.gold),
+                                for (var s = 1; s <= 5; s++)
+                                  Icon(s <= r.rating ? Icons.star : Icons.star_border, size: 18, color: Brand.gold),
                                 const Spacer(),
-                                Text(formatDate(r.createdAt), style: const TextStyle(fontSize: 12, color: Colors.black45)),
+                                Text(formatDate(r.createdAt), style: const TextStyle(fontSize: 12, color: Brand.muted)),
                               ]),
-                              const SizedBox(height: 6),
-                              Text(r.author, style: const TextStyle(fontWeight: FontWeight.w600)),
-                              if (r.comment.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 4), child: Text(r.comment)),
+                              const SizedBox(height: 8),
+                              Text(r.author, style: const TextStyle(fontWeight: FontWeight.w700)),
+                              if (r.comment.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Text(r.comment, style: const TextStyle(height: 1.4)),
+                                ),
                             ],
                           ),
                         ),
                       ),
-                    const SizedBox(height: 4),
-                    OutlinedButton.icon(onPressed: () => _writeReview(product), icon: const Icon(Icons.rate_review_outlined), label: const Text('Write a review')),
+                    OutlinedButton.icon(
+                      onPressed: () => _writeReview(p),
+                      icon: const Icon(Icons.rate_review_outlined),
+                      label: const Text('Write a review'),
+                    ),
                   ],
                 );
               },
@@ -160,8 +317,31 @@ class _ProductScreenState extends State<ProductScreen> {
   }
 }
 
+class _Label extends StatelessWidget {
+  const _Label(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) =>
+      Text(text, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: Brand.navy));
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 28, 20, 12),
+        child: Text(text, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800, color: Brand.navy)),
+      );
+}
+
 class _ReviewDraft {
   const _ReviewDraft(this.name, this.rating, this.comment);
+
   final String name;
   final int rating;
   final String comment;
@@ -178,6 +358,7 @@ class _ReviewDialogState extends State<_ReviewDialog> {
   final _name = TextEditingController();
   final _comment = TextEditingController();
   int _rating = 5;
+  String? _error;
 
   @override
   void dispose() {
@@ -201,12 +382,26 @@ class _ReviewDialogState extends State<_ReviewDialog> {
                   IconButton(
                     tooltip: '$s star${s == 1 ? '' : 's'}',
                     onPressed: () => setState(() => _rating = s),
-                    icon: Icon(s <= _rating ? Icons.star : Icons.star_border, color: AppConfig.gold),
+                    icon: Icon(s <= _rating ? Icons.star : Icons.star_border, color: Brand.gold),
                   ),
               ],
             ),
-            TextField(controller: _name, textCapitalization: TextCapitalization.words, decoration: const InputDecoration(labelText: 'Your name')),
-            TextField(controller: _comment, maxLines: 3, decoration: const InputDecoration(labelText: 'Your review')),
+            TextField(
+              controller: _name,
+              textCapitalization: TextCapitalization.words,
+              decoration: const InputDecoration(labelText: 'Your name'),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _comment,
+              maxLines: 3,
+              decoration: const InputDecoration(labelText: 'Your review'),
+            ),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Text(_error!, style: const TextStyle(color: Brand.danger)),
+              ),
           ],
         ),
       ),
@@ -216,62 +411,15 @@ class _ReviewDialogState extends State<_ReviewDialog> {
           style: FilledButton.styleFrom(minimumSize: const Size(100, 44)),
           onPressed: () {
             final name = _name.text.trim();
-            if (name.isEmpty) return;
+            if (name.isEmpty) {
+              setState(() => _error = 'Please enter your name.');
+              return;
+            }
             Navigator.pop(context, _ReviewDraft(name, _rating, _comment.text.trim()));
           },
           child: const Text('Send'),
         ),
       ],
-    );
-  }
-}
-
-class _ProductVideo extends StatefulWidget {
-  const _ProductVideo({required this.url});
-  final String url;
-
-  @override
-  State<_ProductVideo> createState() => _ProductVideoState();
-}
-
-class _ProductVideoState extends State<_ProductVideo> {
-  late final VideoPlayerController _controller = VideoPlayerController.networkUrl(Uri.parse(widget.url));
-  late final Future<void> _ready = _controller.initialize();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<void>(
-      future: _ready,
-      builder: (context, snap) {
-        if (snap.hasError) return const SizedBox(height: 80, child: Center(child: Text('This video could not be played.')));
-        if (snap.connectionState != ConnectionState.done) return const AspectRatio(aspectRatio: 16 / 9, child: Center(child: CircularProgressIndicator()));
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(14),
-          child: AspectRatio(
-            aspectRatio: _controller.value.aspectRatio,
-            child: ValueListenableBuilder<VideoPlayerValue>(
-              valueListenable: _controller,
-              builder: (_, value, __) => Stack(
-                alignment: Alignment.center,
-                children: [
-                  VideoPlayer(_controller),
-                  IconButton.filled(
-                    tooltip: value.isPlaying ? 'Pause video' : 'Play video',
-                    onPressed: () => value.isPlaying ? _controller.pause() : _controller.play(),
-                    icon: Icon(value.isPlaying ? Icons.pause : Icons.play_arrow),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
     );
   }
 }
