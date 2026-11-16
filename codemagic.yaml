@@ -1,4 +1,32 @@
+
 workflows:
+  android-release:
+    name: Android Play Store Build
+    instance_type: linux_x2
+    max_build_duration: 60
+    environment:
+      flutter: stable
+      groups:
+        - supabase
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+    scripts:
+      - name: Get Flutter packages
+        script: flutter pub get
+      - name: Build Android App Bundle
+        script: |
+          flutter build appbundle --release \
+            --dart-define=SUPABASE_URL=$SUPABASE_URL \
+            --dart-define=SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY
+    artifacts:
+      - build/app/outputs/bundle/release/*.aab
+      - build/app/outputs/flutter-apk/*.apk
+
   ios-testflight:
     name: iOS build and TestFlight
     instance_type: mac_mini_m2
@@ -8,15 +36,15 @@ workflows:
       xcode: latest
       cocoapods: default
       groups:
-        - supabase # SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY, set in Codemagic
+        - supabase
       vars:
-        APP_STORE_APPLE_ID: YOUR_APP_STORE_APPLE_ID # the number shown on your app's page in App Store Connect
+        APP_STORE_APPLE_ID: YOUR_APP_STORE_APPLE_ID
         BUNDLE_ID: com.chianelson.chianelson
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.chianelson.chianelson
     integrations:
-      app_store_connect: CHIANELSON App Store Connect # must match the name you gave the integration in Codemagic
+      app_store_connect: CHIANELSON App Store Connect
     triggering:
       events:
         - push
@@ -53,7 +81,7 @@ workflows:
       xcode: latest
       cocoapods: default
       groups:
-        - supabase # SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY, set in Codemagic
+        - supabase
     triggering:
       events:
         - push
